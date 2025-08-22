@@ -57,15 +57,14 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, sendEmailVerification, reload } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-    import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+    import { getFirestore, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDlI255wuVSVsA0byWLZukBnQFz8p9TcYI",
       authDomain: "find-1-one.firebaseapp.com",
       projectId: "find-1-one",
-      storageBucket: "find-1-one.firebasestorage.app",
+      storageBucket: "find-1-one.appspot.com",
       messagingSenderId: "168713035092",
       appId: "1:168713035092:web:4427e042e98500d9a1bcc1",
       measurementId: "G-JBGGHT1SJ7"
@@ -88,11 +87,14 @@
 
     function startCamera() {
       navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => { camera.srcObject = stream; camera.style.display = "block"; captureBtn.style.display = "inline-block"; })
+        .then(stream => {
+          camera.srcObject = stream;
+          camera.style.display = "block";
+          captureBtn.style.display = "inline-block";
+        })
         .catch(err => { message.textContent = "Camera access denied."; });
     }
 
-    // Capture photo
     captureBtn.addEventListener("click", () => {
       const context = canvas.getContext("2d");
       canvas.width = camera.videoWidth;
@@ -105,7 +107,6 @@
       submitBtn.style.display = "inline-block";
     });
 
-    // Submit verification
     submitBtn.addEventListener("click", async () => {
       if (!currentUser || !imageData) {
         message.textContent = "Capture a photo first and ensure you are signed in.";
@@ -116,10 +117,12 @@
         const storageRef = ref(storage, `user_verifications/${currentUser.uid}.png`);
         await uploadString(storageRef, imageData, "data_url");
 
-        await setDoc(doc(db, "users", currentUser.uid), {
-          email: currentUser.email,
-          verified: true,
-          createdAt: new Date().toISOString()
+        const photoURL = await getDownloadURL(storageRef);
+
+        await updateDoc(doc(db, "users", currentUser.uid), {
+          faceVerified: true,
+          photoURL,
+          updatedAt: new Date()
         });
 
         message.textContent = "Verification complete! Redirecting...";
@@ -130,7 +133,6 @@
       }
     });
 
-    // Monitor auth state
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         statusMsg.textContent = "You are not signed in. Redirecting to login...";
@@ -139,14 +141,14 @@
       }
 
       currentUser = user;
-      await reload(user); // refresh user info
+      await reload(user);
 
       if (user.emailVerified) {
         statusMsg.textContent = "Email verified! You can capture your photo now.";
         startCamera();
       } else {
         statusMsg.innerHTML = "Please verify your email first. Check your inbox and refresh this page after clicking the verification link.";
-        await sendEmailVerification(user); // optional: re-send
+        await sendEmailVerification(user);
         camera.style.display = "none";
         captureBtn.style.display = "none";
       }
