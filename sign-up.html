@@ -194,14 +194,14 @@
     const message = document.getElementById("message");
     const locationInput = document.getElementById("location");
 
-    // Try to get GPS automatically
+    // Auto-fill GPS location if allowed
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const coords = pos.coords.latitude + ", " + pos.coords.longitude;
           locationInput.value = coords;
         },
-        () => { /* If denied, user can enter manually */ }
+        () => { /* User can enter manually if denied */ }
       );
     }
 
@@ -225,20 +225,23 @@
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Save profile to Firestore
+        // Save full profile to Firestore
         await setDoc(doc(db, "users", user.uid), {
           name,
           surname,
           phone,
           location,
           email,
-          createdAt: new Date()
+          emailVerified: user.emailVerified,
+          faceVerified: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
 
-        // Send verification email
+        // Send email verification
         await sendEmailVerification(user);
 
-        // Redirect to sign-up-verify.html
+        // Redirect to sign-up-verify page for face capture
         window.location.href = "sign-up-verify.html";
       } catch (error) {
         message.textContent = error.message;
