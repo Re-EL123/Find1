@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Face Verification</title>
+<style>
+  body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  video, canvas { border: 1px solid #ccc; margin-bottom: 10px; }
+  button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
+  #result { margin-top: 20px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>Face Verification Sign-In</h2>
+
+<video id="video" width="320" height="240" autoplay></video>
+<canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+
+<div>
+  <button id="captureBtn">Capture & Verify</button>
+</div>
+
+<div id="result"></div>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const captureBtn = document.getElementById('captureBtn');
+const resultDiv = document.getElementById('result');
+
+// 1. Access webcam
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    video.srcObject = stream;
+  })
+  .catch(err => {
+    console.error("Error accessing webcam: ", err);
+    alert("Webcam access denied.");
+  });
+
+// 2. Capture image and convert to Base64
+captureBtn.addEventListener('click', async () => {
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageBase64 = canvas.toDataURL('image/jpeg').split(',')[1]; // Remove prefix
+
+  resultDiv.textContent = "Verifying...";
+
+  // 3. Send request to Recognito API
+  const storedImageBase64 = "<PUT_YOUR_STORED_FACE_BASE64_HERE>";
+
+  try {
+    const response = await fetch('https://recognito.p.rapidapi.com/api/compare_face_base64', {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-key': '82ae10db11mshb41ccacdd991130p108a22jsnf3ae22b94bbd',
+        'x-rapidapi-host': 'recognito.p.rapidapi.com',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image1: storedImageBase64,
+        image2: imageBase64
+      })
+    });
+
+    const data = await response.json();
+    if(data.similarity && data.similarity > 0.8){ // adjust threshold
+      resultDiv.textContent = `Face Verified! Similarity: ${data.similarity}`;
+      resultDiv.style.color = "green";
+    } else {
+      resultDiv.textContent = `Verification Failed. Similarity: ${data.similarity}`;
+      resultDiv.style.color = "red";
+    }
+  } catch (err) {
+    console.error(err);
+    resultDiv.textContent = "Error verifying face.";
+    resultDiv.style.color = "red";
+  }
+});
+</script>
+
+</body>
+</html>
