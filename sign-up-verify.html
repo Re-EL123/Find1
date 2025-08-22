@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Find One - Verify</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif;}
+
+    body {
+      background: linear-gradient(135deg, #0f172a, #1e293b, #334155);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+      text-align: center;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .container {
+      background: rgba(255,255,255,0.05);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      max-width: 400px;
+      width: 90%;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+
+    p {
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+      opacity: 0.8;
+    }
+
+    video, canvas {
+      width: 100%;
+      border-radius: 12px;
+      margin-top: 15px;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 12px;
+      background: #38bdf8;
+      color: #0f172a;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #0ea5e9;
+      transform: scale(1.02);
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Verify Your Identity</h1>
+    <p>We’ve sent a verification link to your email. Please confirm your email, then capture your face below to complete verification.</p>
+    
+    <video id="camera" autoplay playsinline></video>
+    <canvas id="snapshot" class="hidden"></canvas>
+
+    <button id="captureBtn">📸 Capture & Upload</button>
+    <p id="status"></p>
+  </div>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, sendEmailVerification } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+    import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDlI255wuVSVsA0byWLZukBnQFz8p9TcYI",
+      authDomain: "find-1-one.firebaseapp.com",
+      projectId: "find-1-one",
+      storageBucket: "find-1-one.appspot.com",  // ✅ fixed bucket domain
+      messagingSenderId: "168713035092",
+      appId: "1:168713035092:web:4427e042e98500d9a1bcc1",
+      measurementId: "G-JBGGHT1SJ7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const storage = getStorage(app);
+
+    const video = document.getElementById("camera");
+    const canvas = document.getElementById("snapshot");
+    const captureBtn = document.getElementById("captureBtn");
+    const status = document.getElementById("status");
+
+    // 📧 Send email verification if not verified
+    onAuthStateChanged(auth, (user) => {
+      if (user && !user.emailVerified) {
+        sendEmailVerification(user).then(() => {
+          status.textContent = "Verification email sent. Please check your inbox.";
+        });
+      }
+    });
+
+    // 📷 Access camera
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        status.textContent = "Camera access denied.";
+      });
+
+    // 📸 Capture and upload
+    captureBtn.addEventListener("click", async () => {
+      if (!auth.currentUser) {
+        status.textContent = "No user signed in.";
+        return;
+      }
+      if (!auth.currentUser.emailVerified) {
+        status.textContent = "Please verify your email first.";
+        return;
+      }
+
+      const context = canvas.getContext("2d");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        const storageRef = ref(storage, `users/${auth.currentUser.uid}/face.png`);
+        await uploadBytes(storageRef, blob);
+        status.textContent = "✅ Face image uploaded successfully!";
+      }, "image/png");
+    });
+  </script>
+</body>
+</html>
